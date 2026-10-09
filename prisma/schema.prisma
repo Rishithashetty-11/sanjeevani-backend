@@ -1,0 +1,91 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DONOR
+  HOSPITAL
+}
+
+enum OtpType {
+  REGISTRATION
+  RESET_PASSWORD
+}
+
+enum RequestStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  password      String
+  name          String
+  role          Role           @default(DONOR)
+  isVerified    Boolean        @default(false)
+  phone         String?
+  address       String?
+  bloodGroup    String?        // A+, O-, etc.
+  latitude      Float?
+  longitude     Float?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  refreshTokens RefreshToken[]
+  bloodRequests BloodRequest[] @relation("Requester")
+  inventory     Inventory[]    @relation("HospitalInventory")
+}
+
+model Otp {
+  id        Int      @id @default(autoincrement())
+  email     String
+  otp       String
+  type      OtpType
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model BloodRequest {
+  id            Int           @id @default(autoincrement())
+  requesterId   Int
+  requester     User          @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  bloodGroup    String
+  unitsRequired Int
+  urgency       String        // Normal, Urgent, Critical
+  location      String
+  latitude      Float?
+  longitude     Float?
+  status        RequestStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Inventory {
+  id          Int      @id @default(autoincrement())
+  hospitalId  Int
+  hospital    User     @relation("HospitalInventory", fields: [hospitalId], references: [id], onDelete: Cascade)
+  bloodGroup  String
+  units       Int      @default(0)
+  lastUpdated DateTime @default(now())
+
+  @@unique([hospitalId, bloodGroup])
+}
